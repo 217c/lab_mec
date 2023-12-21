@@ -7,6 +7,7 @@ import numpy as np
 from random import randint
 import pandas as pd
 import matplotlib.pyplot as plt
+from matplotlib.animation import FuncAnimation, ArtistAnimation
 
 # FUNZIONI
 def update_colors_count(extracted_colors_count, extracted_color):
@@ -31,20 +32,16 @@ def prior(boxes_num):
 def marginal(boxes_num, balls_num):
     return (boxes_num * balls_num) / ( boxes_num * balls_num * 2 )
 
-
 # INITIAL SETTING
 
-"""
-Come prima cosa creiamo le scatoline con le palline
-"""
-
-boxes_num = 16
+#%%%%% EXPERIMENT PARAMETERS
+boxes_num = 15
 balls_num = boxes_num - 1
+
+estrazioni_da_fare = 100
 
 boxes = []
 boxes_probs = []
-
-# extracted_colors_count = [0,0] # all'inizio sono state estratte 0 nere e 0 bianche
 
 for i in range(boxes_num): # uno per ogni scatola
     boxes.append(["B"] * (balls_num-i) + ["W"] * i)  
@@ -63,57 +60,55 @@ print("")
 print(f"Il sacchetto selezionato è il numero {selected_box}: {boxes[selected_box]}")
 print("")
 
-estrazioni_da_fare = 1000
-# extraction_n = []
 prob = []
-# set priors for the first time
-# print("set priors:")
-# print(prior(boxes_num))
-# print([prior(boxes_num)] * boxes_num)
+
+# set priors for the first step
 my_priors = [prior(boxes_num)] * boxes_num
 
+"""
+L'iterazione seguirà questi step:
+    Estrazione pallina
+    Calcolo delle probabilità
+    Normalizzazione delle probabilità
+    Storage dei dati.
+
+L'iterazione andrà avanti finché non vengono fatte n estrazioni.
+"""
 
 for i in range(estrazioni_da_fare):
     # estrai una pallina a caso
     extracted_color = boxes[selected_box][randint(0, balls_num-1)]
     # print(f"\n****\nGiro {i+1}: estratta una pallina {extracted_color}")
 
-    # update colors count
-    # extracted_colors_count = update_colors_count(extracted_colors_count, extracted_color)
-
     # calcolo delle probabilità
     ## non-normalized posterior
+
     # reset new_probs
     new_probs = []
     for ii in range(len(boxes)):
-        
-        # extraction_n.append(i)
-
         # print(f"P({extracted_color}|S{ii}) = {round(likelihood(ii, balls_num, extracted_color), 3)}; P(S{ii}) = {round(prior(boxes_num), 3)}")
-
         new_probs.append(
             likelihood(ii, balls_num, extracted_color) * my_priors[ii]
                     ) 
-
         # print(f"p box {ii}: {round(new_probs[ii], 3)}")
-
     # print(f'Sum of non-normalized posteriors: {round(sum(new_probs),3)}')
 
-    # normalizza queste posterior in base ai dati
+    """
+    Siccome al denominatore c'è semplicemente un fattore di normalizzazione che consente di riportare a 1 la somma delle probabilità,
+    esso è proprio la somma di tutti i numeratori che vengono calcolati in quel dato giro.
+    """
+
+    # normalizza le posterior in base ai dati
     new_probs_norm = []
     for ii in range(len(boxes)):
         ## non-normalized posterior
-        # all_posteriors["extraction_n"].append(i)
         new_probs_norm.append(
             new_probs[ii] / sum(new_probs)
                 )
-
-        # stampale
         # print(f"p box wd {ii}: {round(new_probs_norm[ii], 3)}")
-
     # print(f"total probability wd = {round(sum(new_probs_norm), 3)}")
     
-    # conservale in una lista più grande
+    # salva i dati
     prob.append(new_probs_norm)
 
     # update priors with computed posteriors
@@ -122,166 +117,50 @@ for i in range(estrazioni_da_fare):
     # print(f"************************ Giro {i}: total probability = {round(sum(prob[i]), 3)}")
 
 
+#%%%%% PLOT
 # adesso faccio il grafico delle probabilità
 df = pd.DataFrame(prob)
 print(df)
 
+"""
 plt.bar(x = np.arange(boxes_num), height = df.iloc[-1])
 plt.show()
-
-
-#%% OLD STUFF
-
-"""
-print(f"scatola selezionata: {selected_box} {boxes[selected_box]}")
-
-# estrai una pallina a caso
-extracted_color = boxes[selected_box][randint(0, balls_num-1)]
-print(f"estratta una pallina {extracted_color}")
-
-extracted_colors_count = update_colors_count(extracted_colors_count, extracted_color)
-
-# print("Es: estratta una pallina B")
-# compute probability of extracting B ball from each box
-
 """
 
-"""
-La probabilità che sia la scatola_n data l'estrazione è:
-P(S0|W) = ( P(W|S0) * P(S0)) / (P(W))
+fig, ax = plt.subplots()
+# Initialize the bar plot (use the first row of data)
+bars = ax.bar(x = np.arange(boxes_num), height = df.iloc[0])
+ax.set_ylim([0, 1 ])
 
-Quindi per la prima sarebbe:
-P(W|S0) = numero_scatola / n_palline # questo indica quante palline bianche ci sono dentro (es. la scatola 2 avrà 2 bianche, infatti P(W|S2) = 1)
-P(S0) = 1 / n_scatole # uguale per tutte le scatole
-P(W) = n_W / n_Tot =  # ovvero il numero delle palline bianche diviso il numero di palline totali
+# # Set the initial title
+# title = ax.text(0.85, 1.05, 
+#                 "Estrazione 1",
+#                 bbox={'facecolor':'w', 'alpha':0.5, 'pad':5},
+#                 transform=ax.transAxes,
+#                 ha="center")
 
-"""
+# Create the animation
+n_frames = len(df)
 
-"""
-Così si computa la probabilità per la prima estratta come bianca.
-Per calcolare la probabilità di una nera devo cambiare il primo termine 
-P(B|Si) = (n_scatole - numero_scatola) / n_palline
-"""
-
-
-
-
-"""
-boxes_posteriors = []
-boxes_posteriors_wod = []
-for i in range(len(boxes)):
-    print(f"P({extracted_color}|S{i}) = {round(likelihood(i, balls_num, extracted_color), 3)}; P(S{i}) = {round(prior(boxes_num), 3)}; P({extracted_color}) = {round( marginal(boxes_num, balls_num)  , 3)}")
-    boxes_posteriors.append(
-        likelihood(i, balls_num, extracted_color) * prior(boxes_num) / 
-        marginal(boxes_num, balls_num) 
-        ) 
-    boxes_posteriors_wod.append(
-        likelihood(i, balls_num, extracted_color) * prior(boxes_num)
-        ) 
-    print(f"p box {i}: {round(boxes_posteriors[i], 3)}")
-    # print("")
-
-print(f"total probability = {round(sum(boxes_posteriors),3)}")
-
-# qui faccio sta roba per controllare quanto deve essere il fattore di normalizzazione. 
-# In questo caso viene che deve essere 0.5, che equivale alla mia P(E) iniziale
-print("")
-
-for i in range(len(boxes)):
-    print(f"p box wod {i}: {round(boxes_posteriors_wod[i], 3)}")
-print(f"total probability wod = {round(sum(boxes_posteriors_wod), 3)}")
-
-print("")
-for i in range(len(boxes)):
-    print(f"p box wd {i}: {round(boxes_posteriors_wod[i] / 0.5, 3)}")
-
-print(f"total probability wd = {round(sum(boxes_posteriors_wod)/0.5, 3)}")
-
-
-print("\nSECONDA ESTRAZIONE")
-
-# estrai un'altra pallina a caso dalla stessa scatola, dopo il reinserimento
-extracted_color = boxes[selected_box][randint(0, 4)]
-print(f"estratta una pallina {extracted_color}")
-
-
-"""
-
-"""
-Qui non solo cambia la prior, che viene sostituita con la posterior precedentemente calcolata
-ma cambia anche la probabilità dell'esperienza.
-Come ha scritto il prof alla lavagna dovrebbe essere P(E) = P(E|Hi)*P(Hi)
-
-Ad esempio per S2, dopo una pallina bianca dovrebbe essere
-
-0.6 * 0.133 / 0.6 * 0.5
-Che sarebbe likelihood * nuova_prior / likelihood * vecchia_prior
-
-"""
-
-"""
-
-
-# compute probability for each box
-
-boxes_posteriors_2 = []
-boxes_posteriors_wod_2 = []
-
-
-# for i in range(len(boxes)):
-#     boxes_likel_2.append( boxes_likel[i] * ( boxes_probs[i] *  ) ) 
-#     print(f"probabilità per la scatola {i}: {boxes_likel[i]}")
-
-for i in range(len(boxes)):
-    # print(f"P({extracted_color}|S{i}) = {round(likelihood(i, balls_num, extracted_color), 3)}; P(S{i}) = {round(boxes_likel[i], 3)}; P({extracted_color}) = {round( marginal(boxes_num, balls_num)  , 3)}")
-    # boxes_posteriors_2.append(
-    #     (likelihood(i, balls_num, extracted_color) * boxes_posteriors[i]) / 
-    #     (likelihood(i, balls_num, extracted_color) * marginal(boxes_num, balls_num))
-    #     ) 
+def animate(frame):
+    # Update the heights of the bars for each frame
+    for i, bar in enumerate(bars):
+        bar.set_height(df.iloc[frame, i])
     
-    boxes_posteriors_wod_2.append(
-        (likelihood(i, balls_num, extracted_color) * boxes_posteriors[i])
-        ) 
-    # print(f"p box {i}: {round(boxes_posteriors_2[i], 3)}")
-    print(f"p box wod {i}: {round(boxes_posteriors_wod_2[i], 3)}")
-    # print("")
+    # # Update the title (assuming you have a list of titles)
+    # ax.text(0.85, 1.05, 
+    #         f"Estrazione {frame + 1}",
+    #         bbox={'facecolor':'w', 'alpha':0.5, 'pad':5},
+    #         transform=ax.transAxes,
+    #         ha="center")
+    
 
-print(f"total probability = {round(sum(boxes_posteriors_wod_2),3)}")
+    return bars
 
-print("")
-
-# qui provo a mettere un denominatore
-print("\nAGGIUSTO IL DEN")
-
-"""
-
-"""
-Siccome al denominatore c'è semplicemente un fattore di normalizzazione che consente di riportare a 1 la somma delle probabilità,
-esso è proprio la somma di tutti i numeratori che vengono calcolati in quel dato giro.
-"""
-
-"""
-for i in range(len(boxes)):
-    boxes_posteriors_2.append(
-        boxes_posteriors_wod_2[i] / sum(boxes_posteriors_wod_2)
-    )
-    print(f"p box wd {i}: {round(boxes_posteriors_2[i], 3)}")
-
-print(f"total probability wd = {round(sum(boxes_posteriors_2), 3)}")
-"""
-
-"""
-
-Qui inserisco per bene il programma che deve fare l'esperimento.
-In particolare esso dovrà seguire questi step
-
-Selezione sacchetto
-Start iterazione
-    Estrazione pallina
-    Calcolo delle probabilità
-    Normalizzazione delle probabilità
-    Storage dei dati.
-
-L'iterazione andrà avanti finché non vengono fatte 30 estrazioni.
-
-"""
+anim = FuncAnimation(fig, 
+                     animate,
+                     frames = n_frames,
+                     interval = 25,
+                     repeat = False,
+                     blit = True)
+plt.show()
